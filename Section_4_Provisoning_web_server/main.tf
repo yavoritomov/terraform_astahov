@@ -1,6 +1,6 @@
 provider "aws" {
   region = "us-east-2"
-  profile = "admin"
+  #profile = "admin"
 }
 
 
@@ -23,6 +23,7 @@ data "aws_ami" "ubuntu" {
 resource "aws_instance" "web_server01" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
+  key_name = "ami_demo"
 
   tags = {
     Name  = "Web-Server01"
