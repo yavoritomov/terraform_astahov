@@ -1,5 +1,7 @@
 Section_4_Provisoning_web_server/.terraform/
 my_lambda_framework/.terraform/
+/my_lambda_framework/terraform.tfstate
+/my_lambda_framework/terraform.tfstate.backup
 /my_lambda_framework/scripts/script-0/python/
 /my_lambda_framework/scripts/script-0/requirements.txt
 /my_lambda_framework/scripts/script-0/script-0_layer.zip
