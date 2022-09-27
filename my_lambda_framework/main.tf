@@ -53,40 +53,45 @@ resource "aws_iam_role_policy_attachment" "attach_iam_policy_to_iam_role" {
 data "archive_file" "zip_the_python_code" {
  for_each = local.lambdas
  type        = "zip"
- source_dir  = "${path.module}/scripts/${each.key}/"
- output_path = "${path.module}/scripts/${each.key}/${each.key}-python.zip"
+ source_file  = "${path.module}/scripts/${each.key}/index.py"
+ output_path = "${path.module}/scripts/${each.key}/${each.key}_python.zip"
 }
 
 
 resource "aws_lambda_function" "terraform_lambda_func" {
  for_each = local.lambdas
- filename                       = "${path.module}/scripts/${each.key}/${each.key}-python.zip"
+ filename                       = "${path.module}/scripts/${each.key}/${each.key}_python.zip"
  function_name                  = each.key
  description                    = each.value.lambda.description
  role                           = aws_iam_role.lambda_role.arn
  handler                        = "index.lambda_handler"
  runtime                        = each.value.lambda.runtime
-# layers                         = [aws_lambda_layer_version.lambda_layer.arn]
+ layers                         = [aws_lambda_layer_version.lambda_layer[each.key].arn]
  depends_on                     = [aws_iam_role_policy_attachment.attach_iam_policy_to_iam_role]
  timeout                        = each.value.lambda.timeout
  source_code_hash               = data.archive_file.zip_the_python_code[each.key].output_base64sha256
 }
 
 #---------------Lambda Layer -----------
-#data "archive_file" "zip_the_python_request_module" {
-# type        = "zip"
-# source_dir  = "${path.module}/scripts/python_requests/"
-# output_path = "${path.module}/scripts/requests_layer.zip"
-#}
-#
-#resource "aws_lambda_layer_version" "lambda_layer" {
-#  filename   = "${path.module}/scripts/requests_layer.zip"
-#  layer_name = "python_requests"
-#  source_code_hash = data.archive_file.zip_the_python_request_module.output_base64sha256
-#
-#  compatible_runtimes = ["python3.8"]
-#}
+data "archive_file" "zip_the_python_request_module" {
+ for_each = local.lambdas
+ type        = "zip"
+ source_dir  = "${path.module}/scripts/${each.key}/python"
+ output_path = "${path.module}/scripts/${each.key}/${each.key}_layer.zip"
 
+  depends_on = [
+    null_resource.install_python_libs
+    ]
+}
+
+resource "aws_lambda_layer_version" "lambda_layer" {
+  for_each = local.lambdas
+  filename   = "${path.module}/scripts/${each.key}/${each.key}_layer.zip"
+  layer_name = "${each.key}_layer"
+  source_code_hash = data.archive_file.zip_the_python_request_module[each.key].output_base64sha256
+
+  compatible_runtimes = [each.value.lambda.runtime]
+}
 
 #--------------CloudWatch-------------
 resource "aws_cloudwatch_log_group" "loggroups" {
@@ -116,4 +121,26 @@ resource "aws_lambda_permission" "allow_cloudwatch" {
   function_name = each.value.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.trigger[each.key].arn
+}
+#--------------Python libs----------------
+resource "null_resource" "install_python_libs" {
+  for_each = local.lambdas
+  provisioner "local-exec" {
+    command = "pip install --platform manylinux2014_x86_64 --implementation cp --python 3.8 --only-binary=:all: --target . -r ..\\..\\requirements.txt"
+    interpreter = ["PowerShell", "-Command"]
+    working_dir = ".\\scripts\\${each.key}\\python\\python"
+  }
+  depends_on = [
+    null_resource.requirements_file
+  ]
+}
+
+resource "null_resource" "requirements_file" {
+  for_each = local.lambdas
+  provisioner "local-exec" {
+    command = "python -m  pipreqs.pipreqs ."
+    interpreter = ["PowerShell", "-Command"]
+    working_dir = ".\\scripts\\${each.key}"
+  }
+
 }

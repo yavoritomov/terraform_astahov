@@ -1,10 +1,10 @@
-import urllib3
+import requests
 
 def lambda_handler(event, context):
-    http = urllib3.PoolManager()
-    resp = http.request('GET', 'https://api.zippopotam.us/us/77042')
+    resp = requests.get('https://api.zippopotam.us/us/77004')
     response = resp.json()
-    print(response)
+    record = response
+    print(record)
     return {
-       'message' : response
+       'message' : record
     }
