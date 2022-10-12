@@ -1,25 +1,11 @@
 provider "aws" {
   region = "us-east-2"
-  #profile = "admin"
+  profile = "admin"
 }
 #------------Lambda------------------
 resource "aws_iam_role" "lambda_role" {
 name   = "lambda_scripts"
-assume_role_policy = <<EOF
-{
- "Version": "2012-10-17",
- "Statement": [
-   {
-     "Action": "sts:AssumeRole",
-     "Principal": {
-       "Service": "lambda.amazonaws.com"
-     },
-     "Effect": "Allow",
-     "Sid": ""
-   }
- ]
-}
-EOF
+assume_role_policy = file("./policies/lambda_role.json")
 }
 
 resource "aws_iam_policy" "iam_policy_for_lambda" {
@@ -27,22 +13,7 @@ resource "aws_iam_policy" "iam_policy_for_lambda" {
  name         = "aws_iam_policy_for_terraform_aws_lambda_role"
  path         = "/"
  description  = "AWS IAM Policy for managing aws lambda role"
-  #Move policy to file
- policy = <<EOF
-{
- "Version": "2012-10-17",
- "Statement": [
-   {
-     "Action": [
-       "logs:CreateLogStream",
-       "logs:PutLogEvents"
-     ],
-     "Resource": "arn:aws:logs:*:*:*",
-     "Effect": "Allow"
-   }
- ]
-}
-EOF
+ policy = file("./policies/lambda_policy.json")
 }
 
 resource "aws_iam_role_policy_attachment" "attach_iam_policy_to_iam_role" {
@@ -76,7 +47,7 @@ resource "aws_lambda_function" "terraform_lambda_func" {
 data "archive_file" "zip_the_python_request_module" {
  for_each = local.lambdas
  type        = "zip"
- source_dir  = "${path.module}/scripts/${each.key}/python"
+ source_dir  = "${path.module}/scripts/${each.key}/libs"
  output_path = "${path.module}/scripts/${each.key}/${each.key}_layer.zip"
 
   depends_on = [
@@ -97,6 +68,7 @@ resource "aws_lambda_layer_version" "lambda_layer" {
 resource "aws_cloudwatch_log_group" "loggroups" {
   for_each = local.lambdas
   name              = "/aws/lambda/${each.key}"
+
   retention_in_days = each.value.cloudwatch.retention_in_days
 }
 #-------------Eventbridge-------------
@@ -126,9 +98,8 @@ resource "aws_lambda_permission" "allow_cloudwatch" {
 resource "null_resource" "install_python_libs" {
   for_each = local.lambdas
   provisioner "local-exec" {
-    command = "pip install --platform manylinux2014_x86_64 --implementation cp --python 3.8 --only-binary=:all: --target . -r ..\\..\\requirements.txt"
-    interpreter = ["PowerShell", "-Command"]
-    working_dir = ".\\scripts\\${each.key}\\python\\python"
+    command = "pip3 install --platform manylinux2014_x86_64 --implementation cp --upgrade --python 3.8 --only-binary=:all: --target . -r ../../requirements.txt"
+    working_dir = "./scripts/${each.key}/libs/python"
   }
   depends_on = [
     null_resource.requirements_file
@@ -138,9 +109,29 @@ resource "null_resource" "install_python_libs" {
 resource "null_resource" "requirements_file" {
   for_each = local.lambdas
   provisioner "local-exec" {
-    command = "python -m  pipreqs.pipreqs ."
-    interpreter = ["PowerShell", "-Command"]
-    working_dir = ".\\scripts\\${each.key}"
+    command = "pipreqs --mode gt --use-local --force ."
+    working_dir = "./scripts/${each.key}"
   }
+  depends_on = [
+    null_resource.python_dir
+  ]
+}
 
+resource "null_resource" "libs_dir" {
+  for_each = local.lambdas
+  provisioner "local-exec" {
+    command = "mkdir -p libs"
+    working_dir = "./scripts/${each.key}"
+  }
+}
+
+resource "null_resource" "python_dir" {
+  for_each = local.lambdas
+  provisioner "local-exec" {
+    command = "mkdir -p python"
+    working_dir = "./scripts/${each.key}/libs"
+  }
+  depends_on = [
+    null_resource.libs_dir
+    ]
 }
