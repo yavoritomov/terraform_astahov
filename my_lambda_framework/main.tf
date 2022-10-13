@@ -1,6 +1,6 @@
 provider "aws" {
   region = "us-east-2"
-  profile = "admin"
+ // profile = "admin"
 }
 #------------Lambda------------------
 resource "aws_iam_role" "lambda_role" {
