@@ -59,3 +59,10 @@ resource "aws_lambda_layer_version" "lambda_layer" {
 
   compatible_runtimes = [each.value.lambda.runtime]
 }
+#----------------Function_URL-------------------
+
+resource "aws_lambda_function_url" "test_latest" {
+  for_each = local.lambda_function_url
+  function_name      = aws_lambda_function.terraform_lambda_func[each.key].function_name
+  authorization_type = "NONE"
+}

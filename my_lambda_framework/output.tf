@@ -9,3 +9,7 @@ output "eventbridge_arn" {
     for arn, eventbridge in aws_cloudwatch_event_rule.trigger : arn => eventbridge.arn
   })
 }
+
+output "function_endpoint" {
+  value = aws_lambda_function_url.test_latest
+}
