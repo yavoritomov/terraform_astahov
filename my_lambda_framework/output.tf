@@ -11,5 +11,8 @@ output "eventbridge_arn" {
 }
 
 output "function_endpoint" {
-  value = aws_lambda_function_url.test_latest
+  value = tomap({
+    for function_url, function_name in aws_lambda_function_url.test_latest : function_url => function_name.function_url
+  })
 }
+
