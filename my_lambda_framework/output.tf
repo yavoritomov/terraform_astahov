@@ -12,7 +12,7 @@ output "eventbridge_arn" {
 
 output "function_endpoint" {
   value = tomap({
-    for function_url, function_name in aws_lambda_function_url.test_latest : function_url => function_name.function_url
+    for function_url, function_name in aws_lambda_function_url.url_trigger : function_url => function_name.function_url
   })
 }
 

@@ -1,7 +1,7 @@
 #-------------Eventbridge-------------
 
 resource "aws_cloudwatch_event_rule" "trigger" {
- for_each = local.lambdas
+ for_each = var.lambdas
   name                = each.key
   schedule_expression = each.value.eventbridge.schedule
   description         = each.value.eventbridge.description

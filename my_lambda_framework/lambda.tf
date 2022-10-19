@@ -18,7 +18,7 @@ resource "aws_iam_role_policy_attachment" "attach_iam_policy_to_iam_role" {
 }
 
 data "archive_file" "zip_the_python_code" {
- for_each = local.lambdas
+ for_each = var.lambdas
  type        = "zip"
  source_file  = "${path.module}/scripts/${each.key}/index.py"
  output_path = "${path.module}/scripts/${each.key}/${each.key}_python.zip"
@@ -26,7 +26,7 @@ data "archive_file" "zip_the_python_code" {
 
 
 resource "aws_lambda_function" "terraform_lambda_func" {
- for_each = local.lambdas
+ for_each = var.lambdas
  filename                       = "${path.module}/scripts/${each.key}/${each.key}_python.zip"
  function_name                  = each.key
  description                    = each.value.lambda.description
@@ -41,7 +41,7 @@ resource "aws_lambda_function" "terraform_lambda_func" {
 
 #---------------Lambda Layer -----------
 data "archive_file" "zip_the_python_request_module" {
- for_each = local.lambdas
+ for_each = var.lambdas
  type        = "zip"
  source_dir  = "${path.module}/scripts/${each.key}/libs"
  output_path = "${path.module}/scripts/${each.key}/${each.key}_layer.zip"
@@ -52,7 +52,7 @@ data "archive_file" "zip_the_python_request_module" {
 }
 
 resource "aws_lambda_layer_version" "lambda_layer" {
-  for_each = local.lambdas
+  for_each = var.lambdas
   filename   = "${path.module}/scripts/${each.key}/${each.key}_layer.zip"
   layer_name = "${each.key}_layer"
   source_code_hash = data.archive_file.zip_the_python_request_module[each.key].output_base64sha256
@@ -61,8 +61,18 @@ resource "aws_lambda_layer_version" "lambda_layer" {
 }
 #----------------Function_URL-------------------
 
-resource "aws_lambda_function_url" "test_latest" {
-  for_each = local.lambda_function_url
+resource "aws_lambda_function_url" "url_trigger" {
+  for_each = var.lambda_function_url
   function_name      = aws_lambda_function.terraform_lambda_func[each.key].function_name
-  authorization_type = "NONE"
+  authorization_type = each.value.authorization_type
+
+  cors {
+    allow_credentials = each.value.allow_credentials
+    allow_origins     = each.value.allow_origins
+    allow_methods     = each.value.allow_methods
+    allow_headers     = each.value.allow_headers
+    expose_headers    = each.value.expose_headers
+    max_age           = each.value.max_age
+  }
+
 }
